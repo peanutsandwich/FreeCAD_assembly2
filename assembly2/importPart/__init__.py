@@ -183,51 +183,57 @@ class UpdateImportedPartsCommand:
                 if not hasattr( obj, 'timeLastImport'):
                     obj.addProperty("App::PropertyFloat", "timeLastImport","importPart") #should default to zero which will force update.
                     obj.setEditorMode("timeLastImport",1)
-                if not os.path.exists( obj.sourceFile ) and  path_rel_to_abs( obj.sourceFile ) is None:
-                    debugPrint( 3, '%s.sourceFile %s is missing, attempting to repair it' % (obj.Name,  obj.sourceFile) )
-                    replacement = None
-                    aFolder, aFilename = posixpath.split( doc_assembly.FileName )
-                    sParts = path_split( posixpath, obj.sourceFile)
-                    debugPrint( 3, '  obj.sourceFile parts %s' % sParts )
-                    replacement = None
-                    previousRejects = []
-                    while replacement == None and aFilename != '':
-                        for i in reversed(range(len(sParts))):
-                            newFn = aFolder
-                            for j in range(i,len(sParts)):
-                                newFn = posixpath.join( newFn,sParts[j] )
-                            debugPrint( 4, '    checking %s' % newFn )
-                            if os.path.exists( newFn ) and not newFn in previousRejects :
-                                if YesToAll_clicked:
-                                    replacement = newFn
-                                    break
-                                reply = QtGui.QMessageBox.question(
-                                    QtGui.QApplication.activeWindow(), "%s source file not found" % obj.Name,
-                                    "Unable to find\n  %s \nUse \n  %s\n instead?" % (obj.sourceFile, newFn) ,
-                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.YesToAll | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes)
-                                if reply == QtGui.QMessageBox.Yes:
-                                    replacement = newFn
-                                    break
-                                if reply == QtGui.QMessageBox.YesToAll:
-                                    replacement = newFn
-                                    YesToAll_clicked = True
-                                    break
-                                else:
-                                    previousRejects.append( newFn )
-                        aFolder, aFilename = posixpath.split( aFolder )
-                    if replacement != None:
-                        obj.sourceFile = replacement
-                    else:
-                        QtGui.QMessageBox.critical(  QtGui.QApplication.activeWindow(), "Source file not found", "update of %s aborted!\nUnable to find %s" % (obj.Name, obj.sourceFile) )
-                        obj.timeLastImport = 0 #force update if users repairs link
-                if path_rel_to_abs( obj.sourceFile ) is not None:
-                    absolutePath = path_rel_to_abs( obj.sourceFile )
-                    if os.path.getmtime( absolutePath ) > obj.timeLastImport:
-                        importPart( absolutePath, obj.Name,  doc_assembly )
-                        solve_assembly_constraints = True
-                if os.path.exists( obj.sourceFile ):
-                    if os.path.getmtime( obj.sourceFile ) > obj.timeLastImport:
-                        importPart( obj.sourceFile, obj.Name,  doc_assembly )
+
+                path = obj.sourceFile
+
+                # Try opening the file first
+                if not os.path.exists( path ):
+                    # Not found - check a path relative to the active document
+                    path = os.path.dirname(FreeCAD.ActiveDocument.FileName) + \
+                           '/' + \
+                           obj.sourceFile
+                    if not os.path.exists(path):
+                        debugPrint( 3, '%s.sourceFile %s is missing, attempting to repair it' % (obj.Name,  obj.sourceFile) )
+                        replacement = None
+                        aFolder, aFilename = posixpath.split( doc_assembly.FileName )
+                        sParts = path_split( posixpath, obj.sourceFile)
+                        debugPrint( 3, '  obj.sourceFile parts %s' % sParts )
+                        replacement = None
+                        previousRejects = []
+                        while replacement == None and aFilename != '':
+                            for i in reversed(range(len(sParts))):
+                                newFn = aFolder
+                                for j in range(i,len(sParts)):
+                                    newFn = posixpath.join( newFn,sParts[j] )
+                                debugPrint( 4, '    checking %s' % newFn )
+                                if os.path.exists( newFn ) and not newFn in previousRejects :
+                                    if YesToAll_clicked:
+                                        replacement = newFn
+                                        break
+                                    reply = QtGui.QMessageBox.question(
+                                        QtGui.QApplication.activeWindow(), "%s source file not found" % obj.Name,
+                                        "Unable to find\n  %s \nUse \n  %s\n instead?" % (obj.sourceFile, newFn) ,
+                                        QtGui.QMessageBox.Yes | QtGui.QMessageBox.YesToAll | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes)
+                                    if reply == QtGui.QMessageBox.Yes:
+                                        replacement = newFn
+                                        break
+                                    if reply == QtGui.QMessageBox.YesToAll:
+                                        replacement = newFn
+                                        YesToAll_clicked = True
+                                        break
+                                    else:
+                                        previousRejects.append( newFn )
+                            aFolder, aFilename = posixpath.split( aFolder )
+                        if replacement != None:
+                            obj.sourceFile = replacement
+                            path = replacement
+                        else:
+                            QtGui.QMessageBox.critical(  QtGui.QApplication.activeWindow(), "Source file not found", "update of %s aborted!\nUnable to find %s" % (obj.Name, obj.sourceFile) )
+                            obj.timeLastImport = 0 #force update if users repairs link
+
+                if os.path.exists( path ):
+                    if os.path.getmtime( path ) > obj.timeLastImport:
+                        importPart( path, obj.Name,  doc_assembly )
                         solve_assembly_constraints = True
 
         if solve_assembly_constraints:
